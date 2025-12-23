@@ -1,14 +1,9 @@
-import postgres from "postgres";
-import fs from "node:fs";
-import type { Sql } from "postgres";
-import type {
-  ServerConfig,
-  TableInfo,
-  ColumnInfo,
-  TableResource,
-} from "./types.js";
-import { PostgresError } from "./types.js";
-import type { Logger } from "./logger.js";
+import postgres from 'postgres';
+import fs from 'node:fs';
+import type { Sql } from 'postgres';
+import type { ServerConfig, TableInfo, ColumnInfo, TableResource } from './types.js';
+import { PostgresError } from './types.js';
+import type { Logger } from './logger.js';
 
 /**
  * SSL configuration type compatible with postgres library SSL options
@@ -40,9 +35,9 @@ interface PostgresLibraryError extends Error {
 function isPostgresLibraryError(error: unknown): error is PostgresLibraryError {
   return (
     error !== null &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof (error as PostgresLibraryError).message === "string"
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof (error as PostgresLibraryError).message === 'string'
   );
 }
 
@@ -59,7 +54,7 @@ function extractErrorDetails(error: unknown): {
     return {
       message: error.message,
       code: error.code,
-      detail: error.detail,
+      detail: error.detail
     };
   }
 
@@ -67,7 +62,7 @@ function extractErrorDetails(error: unknown): {
     return {
       message: error.message,
       code: error.code,
-      detail: error.detail,
+      detail: error.detail
     };
   }
 
@@ -76,7 +71,7 @@ function extractErrorDetails(error: unknown): {
   }
 
   return {
-    message: typeof error === "string" ? error : "Unknown error occurred",
+    message: typeof error === 'string' ? error : 'Unknown error occurred'
   };
 }
 
@@ -100,30 +95,19 @@ export class DatabaseConnection {
    * @returns Configured PostgreSQL connection instance
    */
   private createConnection(): Sql {
-    const {
-      databaseUrl,
-      maxConnections,
-      connectionTimeout,
-      prepareStatements,
-      debug,
-      fetchTypes,
-    } = this.config;
+    const { databaseUrl, maxConnections, connectionTimeout, prepareStatements, debug, fetchTypes } = this.config;
 
     // Build base connection options
-    const connectionOptions: postgres.Options<
-      Record<string, postgres.PostgresType>
-    > = {
+    const connectionOptions: postgres.Options<Record<string, postgres.PostgresType>> = {
       max: maxConnections,
       idle_timeout: 20,
       connect_timeout: connectionTimeout,
       prepare: prepareStatements,
-      onnotice: debug
-        ? (notice) => this.logger.debug("PostgreSQL Notice", { notice })
-        : undefined,
+      onnotice: debug ? notice => this.logger.debug('PostgreSQL Notice', { notice }) : undefined,
       transform: {
-        undefined: null, // Transform undefined values to null for PostgreSQL compatibility
+        undefined: null // Transform undefined values to null for PostgreSQL compatibility
       },
-      fetch_types: fetchTypes ?? true,
+      fetch_types: fetchTypes ?? true
     };
 
     // Configure SSL/TLS based on configuration
@@ -138,40 +122,33 @@ export class DatabaseConnection {
   /**
    * Configure SSL/TLS settings for the connection
    */
-  private configureSsl(
-    connectionOptions: postgres.Options<Record<string, postgres.PostgresType>>
-  ): void {
+  private configureSsl(connectionOptions: postgres.Options<Record<string, postgres.PostgresType>>): void {
     if (this.config.sslRootCertPath) {
       // Use custom CA certificate file
       try {
-        const certificateAuthority = fs.readFileSync(
-          this.config.sslRootCertPath,
-          "utf-8"
-        );
+        const certificateAuthority = fs.readFileSync(this.config.sslRootCertPath, 'utf-8');
         const sslConfig: SslConfig = {
           ca: certificateAuthority,
-          rejectUnauthorized: this.config.sslRejectUnauthorized ?? true,
+          rejectUnauthorized: this.config.sslRejectUnauthorized ?? true
         };
         connectionOptions.ssl = sslConfig;
-        this.logger.debug("Using custom SSL root certificate", {
+        this.logger.debug('Using custom SSL root certificate', {
           path: this.config.sslRootCertPath,
-          rejectUnauthorized: sslConfig.rejectUnauthorized,
+          rejectUnauthorized: sslConfig.rejectUnauthorized
         });
       } catch (error) {
-        this.logger.error("Failed to read SSL root certificate", error);
+        this.logger.error('Failed to read SSL root certificate', error);
         const { message } = extractErrorDetails(error);
-        throw new PostgresError(
-          `Failed to read SSL root certificate at ${this.config.sslRootCertPath}: ${message}`
-        );
+        throw new PostgresError(`Failed to read SSL root certificate at ${this.config.sslRootCertPath}: ${message}`);
       }
     } else if (this.config.requireSsl) {
       // Enable SSL using system certificates (no custom CA)
       const sslConfig: SslConfig = {
-        rejectUnauthorized: this.config.sslRejectUnauthorized ?? true,
+        rejectUnauthorized: this.config.sslRejectUnauthorized ?? true
       };
       connectionOptions.ssl = sslConfig;
-      this.logger.debug("SSL enabled (using system certificates)", {
-        rejectUnauthorized: sslConfig.rejectUnauthorized,
+      this.logger.debug('SSL enabled (using system certificates)', {
+        rejectUnauthorized: sslConfig.rejectUnauthorized
       });
     }
   }
@@ -180,17 +157,12 @@ export class DatabaseConnection {
    * Extract SSL configuration for logging purposes
    */
   private getSslConfigForLogging(
-    ssl: postgres.Options<Record<string, postgres.PostgresType>>["ssl"]
+    ssl: postgres.Options<Record<string, postgres.PostgresType>>['ssl']
   ): { rejectUnauthorized?: boolean } | undefined {
-    if (
-      typeof ssl === "object" &&
-      ssl !== null &&
-      !Array.isArray(ssl) &&
-      "rejectUnauthorized" in ssl
-    ) {
+    if (typeof ssl === 'object' && ssl !== null && !Array.isArray(ssl) && 'rejectUnauthorized' in ssl) {
       const sslObj = ssl as SslConfig;
       return {
-        rejectUnauthorized: sslObj.rejectUnauthorized,
+        rejectUnauthorized: sslObj.rejectUnauthorized
       };
     }
     return undefined;
@@ -199,16 +171,14 @@ export class DatabaseConnection {
   /**
    * Log connection configuration details
    */
-  private logConnectionConfig(
-    connectionOptions: postgres.Options<Record<string, postgres.PostgresType>>
-  ): void {
+  private logConnectionConfig(connectionOptions: postgres.Options<Record<string, postgres.PostgresType>>): void {
     const sslLogging = this.getSslConfigForLogging(connectionOptions.ssl);
-    this.logger.info("Creating PostgreSQL connection", {
+    this.logger.info('Creating PostgreSQL connection', {
       maxConnections: connectionOptions.max,
       prepareStatements: connectionOptions.prepare,
       tlsEnabled: Boolean(connectionOptions.ssl),
       sslRejectUnauthorized: sslLogging?.rejectUnauthorized,
-      fetchTypes: connectionOptions.fetch_types,
+      fetchTypes: connectionOptions.fetch_types
     });
   }
 
@@ -219,15 +189,11 @@ export class DatabaseConnection {
     try {
       await this.sql`SELECT 1 as test`;
       this.isConnected = true;
-      this.logger.info("Database connection established successfully");
+      this.logger.info('Database connection established successfully');
     } catch (error) {
       this.isConnected = false;
       const { message, code, detail } = extractErrorDetails(error);
-      throw new PostgresError(
-        `Failed to connect to database: ${message}`,
-        code,
-        detail
-      );
+      throw new PostgresError(`Failed to connect to database: ${message}`, code, detail);
     }
   }
 
@@ -240,29 +206,58 @@ export class DatabaseConnection {
    */
   async executeQuery(query: string): Promise<Record<string, unknown>[]> {
     try {
-      this.logger.debug("Executing query", {
+      this.logger.debug('Executing query', {
         queryLength: query.length,
-        preview: query.substring(0, 100),
+        preview: query.substring(0, 100)
       });
 
       const startTime = Date.now();
       const result = await this.sql.unsafe(query);
       const duration = Date.now() - startTime;
 
-      this.logger.info("Query executed successfully", {
+      this.logger.info('Query executed successfully', {
         rowCount: result.length,
-        duration: `${duration}ms`,
+        duration: `${duration}ms`
       });
 
       return result;
     } catch (error) {
-      this.logger.error("Query execution failed", error);
+      this.logger.error('Query execution failed', error);
       const { message, code, detail } = extractErrorDetails(error);
-      throw new PostgresError(
-        message || "Query execution failed",
-        code,
-        detail
-      );
+      throw new PostgresError(message || 'Query execution failed', code, detail);
+    }
+  }
+
+  /**
+   * Execute a parameterized SQL query against the database
+   *
+   * @param query - The SQL query string with $1, $2, etc. placeholders
+   * @param params - Array of parameter values to bind
+   * @returns Array of result rows as records
+   * @throws PostgresError if query execution fails
+   */
+  async executeParameterizedQuery(query: string, params: unknown[]): Promise<Record<string, unknown>[]> {
+    try {
+      this.logger.debug('Executing parameterized query', {
+        queryLength: query.length,
+        paramCount: params.length,
+        preview: query.substring(0, 100)
+      });
+
+      const startTime = Date.now();
+      const result = await this.sql.unsafe(query, params as postgres.SerializableParameter[]);
+      const duration = Date.now() - startTime;
+
+      this.logger.info('Parameterized query executed successfully', {
+        rowCount: result.length,
+        duration: `${duration}ms`
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('Parameterized query execution failed', error);
+      const { message, code, detail } = extractErrorDetails(error);
+      throw new PostgresError(message || 'Query execution failed', code, detail);
     }
   }
 
@@ -283,12 +278,12 @@ export class DatabaseConnection {
         ORDER BY table_schema, table_name
       `;
 
-      this.logger.debug("Retrieved table list", { count: tables.length });
+      this.logger.debug('Retrieved table list', { count: tables.length });
       return tables;
     } catch (error) {
-      this.logger.error("Failed to retrieve tables", error);
+      this.logger.error('Failed to retrieve tables', error);
       const { code, detail } = extractErrorDetails(error);
-      throw new PostgresError("Failed to retrieve table list", code, detail);
+      throw new PostgresError('Failed to retrieve table list', code, detail);
     }
   }
 
@@ -303,7 +298,7 @@ export class DatabaseConnection {
   async getTableDetails(schema: string, table: string): Promise<TableResource> {
     // Validate inputs
     if (!schema || !table) {
-      throw new PostgresError("Schema and table name are required");
+      throw new PostgresError('Schema and table name are required');
     }
 
     try {
@@ -321,31 +316,27 @@ export class DatabaseConnection {
       `;
 
       if (columns.length === 0) {
-        throw new PostgresError(
-          `Table ${schema}.${table} not found or no columns visible`
-        );
+        throw new PostgresError(`Table ${schema}.${table} not found or no columns visible`);
       }
 
       // Retrieve sample rows using safely quoted identifiers
       const qualifiedTableName = `${this.quoteIdentifier(schema)}.${this.quoteIdentifier(table)}`;
-      const sampleRows = await this.sql.unsafe(
-        `SELECT * FROM ${qualifiedTableName} LIMIT 50`
-      );
+      const sampleRows = await this.sql.unsafe(`SELECT * FROM ${qualifiedTableName} LIMIT 50`);
 
-      this.logger.debug("Retrieved table details", {
+      this.logger.debug('Retrieved table details', {
         schema,
         table,
         columnCount: columns.length,
-        sampleRowCount: sampleRows.length,
+        sampleRowCount: sampleRows.length
       });
 
       return {
         schema: {
           schema,
           table,
-          columns,
+          columns
         },
-        sampleRows,
+        sampleRows
       };
     } catch (error) {
       this.logger.error(`Failed to get details for ${schema}.${table}`, error);
@@ -357,11 +348,7 @@ export class DatabaseConnection {
 
       // Wrap other errors in PostgresError with extracted details
       const { code, detail } = extractErrorDetails(error);
-      throw new PostgresError(
-        `Failed to retrieve details for table ${schema}.${table}`,
-        code,
-        detail
-      );
+      throw new PostgresError(`Failed to retrieve details for table ${schema}.${table}`, code, detail);
     }
   }
 
@@ -377,8 +364,8 @@ export class DatabaseConnection {
    */
   private quoteIdentifier(identifier: string): string {
     // Validate identifier doesn't contain null bytes (security check)
-    if (identifier.includes("\0")) {
-      throw new PostgresError("Identifier cannot contain null bytes");
+    if (identifier.includes('\0')) {
+      throw new PostgresError('Identifier cannot contain null bytes');
     }
 
     // Double-quote and escape any quotes within the identifier
@@ -396,9 +383,9 @@ export class DatabaseConnection {
     try {
       await this.sql.end({ timeout: 5 });
       this.isConnected = false;
-      this.logger.info("Database connection closed");
+      this.logger.info('Database connection closed');
     } catch (error) {
-      this.logger.error("Error closing database connection", error);
+      this.logger.error('Error closing database connection', error);
       // Don't throw - connection closure errors shouldn't propagate
     }
   }
@@ -411,7 +398,7 @@ export class DatabaseConnection {
   getStatus(): { connected: boolean; poolSize: number } {
     return {
       connected: this.isConnected,
-      poolSize: this.config.maxConnections,
+      poolSize: this.config.maxConnections
     };
   }
 }
